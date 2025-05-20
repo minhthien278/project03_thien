@@ -10,7 +10,7 @@ pipeline {
             spring-petclinic-vets-service
             spring-petclinic-visits-service
         """
-        DOCKER_USER = 'vuden'
+        DOCKER_USER = 'tlavu2004'
     }
 
     stages {
