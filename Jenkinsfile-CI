@@ -12,7 +12,6 @@ pipeline {
             spring-petclinic-vets-service
             spring-petclinic-visits-service
         """
-        DOCKER_USER = 'tlavu2004'
         ARTIFACT_VERSION = '3.4.1'
     }
 
@@ -111,7 +110,7 @@ pipeline {
             }
         }
 
-        stage('Docker Cleanup & Logout') {
+        stage('Docker Cleanup and Logout') {
             steps {
                 script {
                     echo "🧹 Cleaning up Docker and logging out..."
