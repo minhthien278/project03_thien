@@ -3,14 +3,17 @@ pipeline {
 
     environment {
         SERVICES = """
+            spring-petclinic-admin-server
             spring-petclinic-api-gateway
             spring-petclinic-config-server
             spring-petclinic-customers-service
             spring-petclinic-discovery-server
+            spring-petclinic-genai-service
             spring-petclinic-vets-service
             spring-petclinic-visits-service
         """
         DOCKER_USER = 'tlavu2004'
+        ARTIFACT_VERSION = '3.4.1'
     }
 
     stages {
@@ -20,17 +23,20 @@ pipeline {
                 sh "git fetch --tags"
             }
         }
+
         stage('Detect Release') {
             steps {
                 script {
                     def tagName = sh(script: "git tag --points-at HEAD", returnStdout: true).trim()
-                    echo "Tag name: ${tagName}"
-                    env.CHANGED_SERVICES = env.SERVICES
-                    env.TAG_NAME = tagName
-                    echo "A new release found with tag ${env.TAG_NAME}"
+                    if (tagName) {
+                        echo "Release tag detected: ${tagName}"
+                        env.TAG_NAME = tagName
+                        env.CHANGED_SERVICES = env.SERVICES
+                    }
                 }
             }
         }
+
         stage('Detect Changes') {
             when { expression { return !env.TAG_NAME } }
             steps {
@@ -39,7 +45,7 @@ pipeline {
                     def changes = sh(script: "git diff --name-only origin/main HEAD", returnStdout: true).trim().split("\n")
                     echo "Changed files: ${changes}"
 
-                    def allServices = SERVICES.split().collect { it.trim() }
+                    def allServices = SERVICES.split("\n").collect { it.trim() }.findAll { it }
 
                     def changedServices = allServices.findAll { service ->
                         changes.any { it.contains(service) }
@@ -59,7 +65,6 @@ pipeline {
 
         stage('Docker Login') {
             steps {
-                sh 'whoami'
                 withCredentials([string(credentialsId: 'docker-credentials', variable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -67,36 +72,47 @@ pipeline {
                 }
             }
         }
+
         stage('Build and push docker image') {
             steps {
                 script {
-                    def imageTag
+                    def imageTag = env.TAG_NAME ?: sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    env.IMAGE_TAG = imageTag
+
                     def services = []
-                    if (env.TAG_NAME) {
-                        imageTag = env.TAG_NAME
+                    if (env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'main' || env.TAG_NAME) {
+                        services = SERVICES.split("\n").collect { it.trim() }.findAll { it }
                     } else {
-                        imageTag = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                        services = env.CHANGED_SERVICES.split(',').collect { it.trim() }
                     }
-                    if (env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'main') { 
-                        services = env.SERVICES.split()
+
+                    if (!services || services.isEmpty()) {
+                        echo "No services to build. Skipping."
+                        return
                     }
-                    else services = env.CHANGED_SERVICES.split(',')
 
                     for (service in services) {
-                        echo "🚀 Building and pushing image for ${service} with tag ${imageTag}"
-                        sh "./mvnw clean install -pl ${service} -DskipTests"   
+                        echo "Building and pushing image for ${service} with tag ${imageTag}"
+                        sh "./mvnw clean install -pl ${service} -DskipTests"
+
                         sh """
                             cd ${service} && \\
                             docker build \\
-                            -t ${DOCKER_USER}/${service}:${imageTag} \\
-                            -f ../docker/Dockerfile \\
-                            --build-arg ARTIFACT_NAME=target/${service}-3.4.1 \\
-                            --build-arg EXPOSED_PORT=8080 .
+                                -t ${DOCKER_USER}/${service}:${imageTag} \\
+                                -f ../docker/Dockerfile \\
+                                --build-arg ARTIFACT_NAME=target/${service}-${ARTIFACT_VERSION} \\
+                                --build-arg EXPOSED_PORT=8080 . && \\
                             docker push ${DOCKER_USER}/${service}:${imageTag}
                         """
                     }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ CI pipeline finished. Built tag: ${env.IMAGE_TAG}"
         }
     }
 }
