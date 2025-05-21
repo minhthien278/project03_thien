@@ -65,15 +65,16 @@ pipeline {
 
         stage('Docker Login') {
             steps {
-                withCredentials([string(credentialsId: 'docker-credentials', variable: 'DOCKER_PASS')]) {
-                    sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                    '''
+                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    script {
+                        env.DOCKER_USER = DOCKER_USER
+                        sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                    }
                 }
             }
         }
 
-        stage('Build and push docker image') {
+        stage('Build and Push Docker Images') {
             steps {
                 script {
                     def imageTag = env.TAG_NAME ?: sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
@@ -92,19 +93,30 @@ pipeline {
                     }
 
                     for (service in services) {
-                        echo "Building and pushing image for ${service} with tag ${imageTag}"
+                        echo "🔨 Building and pushing image for ${service}:${imageTag}"
+
                         sh "./mvnw clean install -pl ${service} -DskipTests"
 
                         sh """
                             cd ${service} && \\
                             docker build \\
-                                -t ${DOCKER_USER}/${service}:${imageTag} \\
+                                -t ${env.DOCKER_USER}/${service}:${imageTag} \\
                                 -f ../docker/Dockerfile \\
                                 --build-arg ARTIFACT_NAME=target/${service}-${ARTIFACT_VERSION} \\
                                 --build-arg EXPOSED_PORT=8080 . && \\
-                            docker push ${DOCKER_USER}/${service}:${imageTag}
+                            docker push ${env.DOCKER_USER}/${service}:${imageTag}
                         """
                     }
+                }
+            }
+        }
+
+        stage('Docker Cleanup & Logout') {
+            steps {
+                script {
+                    echo "🧹 Cleaning up Docker and logging out..."
+                    sh "docker system prune -af || true"
+                    sh "docker logout || true"
                 }
             }
         }
@@ -112,7 +124,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ CI pipeline finished. Built tag: ${env.IMAGE_TAG}"
+            echo "CI pipeline finished. Built tag: ${env.IMAGE_TAG}"
+        }
+        failure {
+            echo "CI pipeline failed!"
         }
     }
 }
