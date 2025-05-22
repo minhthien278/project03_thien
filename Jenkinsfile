@@ -107,7 +107,7 @@ pipeline {
                         """
 
                         // If on main branch or tag, also push latest
-                        if (env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'main' || env.TAG_NAME) {
+                        if (env.BRANCH_NAME == 'main' || env.TAG_NAME) {
                             sh """
                                 docker tag ${env.DOCKER_USER}/${service}:${imageTag} ${env.DOCKER_USER}/${service}:latest
                                 docker push ${env.DOCKER_USER}/${service}:latest
