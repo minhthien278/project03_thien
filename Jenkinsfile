@@ -92,7 +92,7 @@ pipeline {
                     }
 
                     for (service in services) {
-                        echo "🔨 Building and pushing image for ${service}:${imageTag}"
+                        echo "Building and pushing image for ${service}:${imageTag}"
 
                         sh "./mvnw clean install -pl ${service} -DskipTests"
 
@@ -105,6 +105,14 @@ pipeline {
                                 --build-arg EXPOSED_PORT=8080 . && \\
                             docker push ${env.DOCKER_USER}/${service}:${imageTag}
                         """
+
+                        // If on main branch or tag, also push latest
+                        if (env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'main' || env.TAG_NAME) {
+                            sh """
+                                docker tag ${env.DOCKER_USER}/${service}:${imageTag} ${env.DOCKER_USER}/${service}:latest
+                                docker push ${env.DOCKER_USER}/${service}:latest
+                            """
+                        }
                     }
                 }
             }
@@ -113,7 +121,7 @@ pipeline {
         stage('Docker Cleanup and Logout') {
             steps {
                 script {
-                    echo "🧹 Cleaning up Docker and logging out..."
+                    echo "Cleaning up Docker and logging out..."
                     sh "docker system prune -af || true"
                     sh "docker logout || true"
                 }
