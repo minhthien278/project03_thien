@@ -72,21 +72,18 @@ services:
             }
         }
         stage('Deploy to Kubernetes') {
+           
             when {
-                expression { return params.namespace != null }
+                expression { return params.DEPLOY_NAMESPACE != null }
             }
             steps {
                 script {
                     def namespace = params.namespace.trim()
                     sh """
                         cd helm-chart
-                        if ! kubectl get namespace ${namespace} > /dev/null 2>&1; then
-                            kubectl create namespace ${namespace}
-                        fi
-
                         helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
                         -f environments/dev-review/values-${namespace}.yaml \
-                        --namespace ${namespace}
+                        --namespace ${namespace} --create-namespace || true
                     """
                 }
             }
