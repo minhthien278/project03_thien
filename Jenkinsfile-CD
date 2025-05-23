@@ -114,6 +114,6 @@ def getTag(serviceName, branch) {
         returnStdout: true
     ).trim()
 
-    return "\"${commit.take(7)}\""
+    return commit
 
 }
