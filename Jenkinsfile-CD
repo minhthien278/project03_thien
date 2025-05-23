@@ -92,6 +92,7 @@ services:
                 script {
                     def namespace = params.namespace.trim()
                     sh """
+                        cd helm-chart
                         echo "🗑️ Cleaning up existing namespace if exists..."
                         kubectl delete namespace ${namespace} --ignore-not-found=true
                 
