@@ -74,7 +74,7 @@ services:
         stage('Deploy to Kubernetes') {
            
             when {
-                expression { return params.DEPLOY_NAMESPACE != null }
+                expression { return params.namespace != null }
             }
             steps {
                 script {
