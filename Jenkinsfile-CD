@@ -31,8 +31,6 @@ pipeline {
         stage('Generate values.yaml') {
             steps {
                 script {
-                    def apiGatewayTag = getTag("api-gateway", params.api_gateway)
-                    echo "api-gateway tag: ${apiGatewayTag}"
                     def values = """
 global:
   namespace: ${namespace}
