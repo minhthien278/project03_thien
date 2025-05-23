@@ -8,7 +8,7 @@ pipeline {
         DEFAULT_NAMESPACE_PREFIX = "dev-review"
         GIT_REPO_CODE = "https://github.com/HCMUS-DevOps-Projects/project02.git"
         DOCKER_USER = "tlvu2004"
-        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
