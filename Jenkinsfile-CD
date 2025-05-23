@@ -39,7 +39,7 @@ pipeline {
                 script {
                     def values = """
 global:
-  namespace: ${namespace}
+  namespace: ${params.namespace}
 
 services:
   api-gateway:
@@ -78,7 +78,7 @@ services:
             // when {
             //     expression { return params.DEPLOY_NAMESPACE != null }
             // }
-            steps {
+            steps { 
                 echo "✅ DEPLOY_NAMESPACE = '${params.namespace}'"
                 echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
                 script {
