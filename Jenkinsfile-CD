@@ -45,7 +45,6 @@ services:
     ingress:
       host: petclinic-${namespace}.com
 
-
   config-server:
     image:
       tag: ${getTag("config-server", params.config_server)}
