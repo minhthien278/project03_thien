@@ -47,29 +47,33 @@ global:
 services:
   api-gateway:
     image:
-      tag: ${getTag("api-gateway", params.api-gateway)}
+      tag: ${getTag("api-gateway", params.api_gateway)}
+      echo "tag: ${getTag("api-gateway", params.api_gateway)}"
     ingress:
       host: petclinic-${namespace}.com
 
+
   config-server:
     image:
-      tag: ${getTag("config-server", params.config-server)}
+      tag: ${getTag("config-server", params.config_server)}
 
   customers-service:
     image:
-      tag: ${getTag("customers-service", params.customers-service)}
+      tag: ${getTag("customers-service", params.customers_service)}
 
   discovery-server:
     image:
-      tag: ${getTag("discovery-server", params.discovery-server)}
+      tag: ${getTag("discovery-server", params.discovery_server)}
 
   vets-service:
     image:
-      tag: ${getTag("vets-service", params.vets-service)}
+      tag: ${getTag("vets-service", params.vets_service)}
+      echo "tag: ${getTag("vets-service", params.vets_service)}"
 
   visits-service:
     image:
-      tag: ${getTag("visits-service", params.visits-service)}
+      tag: ${getTag("visits-service", params.visits_service)}
+      echo "tag: ${getTag("visits-service", params.visits_service)}"
 """
 
                     writeFile file: "helm-chart/environments/dev-review/values-${namespace}.yaml", text: values
@@ -87,7 +91,7 @@ services:
                     def namespace = params.DEPLOY_NAMESPACE?.trim()
                     sh """
                     helm upgrade --install ${HELM_RELEASE}-${namespace} ${HELM_CHART_DIR} \
-                      -f helm-chart/env/dev-review/values-${namespace}.yaml \
+                      -f helm-chart/environments/dev-review/values-${namespace}.yaml \
                       --namespace ${namespace} --create-namespace 
                     """
                 }
