@@ -71,32 +71,22 @@ services:
                 }
             }
         }
-        stage('Verify Kubernetes Access') {
-            steps {
-                sh '''
-                    echo "Using kubeconfig: $KUBECONFIG"
-                    kubectl cluster-info
-                    kubectl get nodes
-                '''
-            }
-        }
         stage('Deploy to Kubernetes') {
-           
-            // when {
-            //     expression { return params.DEPLOY_NAMESPACE != null }
-            // }
+            when {
+                expression { return params.namespace != null }
+            }
             steps {
                 script {
                     def namespace = params.namespace.trim()
                     sh """
                         cd helm-chart
-                        while kubectl get namespace ${namespace} >/dev/null 2>&1; do
-                            echo "Waiting for namespace ${namespace} to be deleted..."
-                            sleep 2
-                        done
+                        if ! kubectl get namespace ${namespace} > /dev/null 2>&1; then
+                            kubectl create namespace ${namespace}
+                        fi
+
                         helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
                         -f environments/dev-review/values-${namespace}.yaml \
-                        --namespace ${namespace} --create-namespace 
+                        --namespace ${namespace}
                     """
                 }
             }
