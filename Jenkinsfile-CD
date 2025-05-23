@@ -93,7 +93,10 @@ services:
                     def namespace = params.namespace.trim()
                     sh """
                         cd helm-chart
-                        kubectl delete namespace ${namespace} || true
+                        while kubectl get namespace ${namespace} >/dev/null 2>&1; do
+                            echo "Waiting for namespace ${namespace} to be deleted..."
+                            sleep 2
+                        done
                         helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
                         -f environments/dev-review/values-${namespace}.yaml \
                         --namespace ${namespace} --create-namespace 
