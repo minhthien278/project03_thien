@@ -30,7 +30,6 @@ pipeline {
         stage('Generate values.yaml') {
             steps {
                 script {
-                    def namespace = params.DEPLOY_NAMESPACE?.trim() ?: "dev-${env.BUILD_USER_ID ?: 'unknown'}"
                     def values = """
 global:
   namespace: ${namespace}
@@ -79,7 +78,7 @@ services:
             }
             steps {
                 script {
-                    def namespace = params.DEPLOY_NAMESPACE?.trim()
+                    def namespace = params.DEPLOY_NAMESPACE.trim()
                     sh """
                     helm upgrade --install ${HELM_RELEASE}-${namespace} ${HELM_CHART_DIR} \
                       -f helm-chart/environments/dev-review/values-${namespace}.yaml \
