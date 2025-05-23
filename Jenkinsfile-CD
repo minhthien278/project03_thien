@@ -4,11 +4,10 @@ pipeline {
     environment {
         HELM_RELEASE = "petclinic"
         HELM_CHART_REPO = "https://github.com/HCMUS-DevOps-Projects/project02-k8s.git"
-        HELM_CHART_DIR = "charts" // thư mục chứa Helm chart sau khi clone (có thể để là '.' nếu Helm chart nằm ở root repo)
+        HELM_CHART_DIR = "charts"
         DEFAULT_NAMESPACE_PREFIX = "dev-review"
-
         GIT_REPO_CODE = "https://github.com/HCMUS-DevOps-Projects/project02.git"
-        DOCKER_USER = "tlvu2004" // bạn có thể thay thế hoặc lấy từ credential
+        DOCKER_USER = "tlvu2004"
     }
 
     parameters {
@@ -26,9 +25,9 @@ pipeline {
     }
 
     stages {
-        stage('Clone Helm Chart') {
+        stage('Clone Helm Repository') {
             steps {
-                sh "rm -rf helm-chart && git clone ${env.HELM_CHART_REPO} helm-chart"
+                sh "git clone ${env.HELM_CHART_REPO} project02-k8s"
             }
         }
 
@@ -71,7 +70,6 @@ pipeline {
                         return
                     }
 
-                    // ACTION == Deploy tiếp tục xử lý deploy
                     def services = [
                         apiGateway: ['repoName': 'api-gateway', 'branch': params.API_GATEWAY_BRANCH, 'helmName': 'spring-petclinic-api-gateway'],
                         adminServer: ['repoName': 'admin-server', 'branch': params.ADMIN_SERVER_BRANCH, 'helmName': 'spring-petclinic-admin-server'],
@@ -83,22 +81,31 @@ pipeline {
                         visitsService: ['repoName': 'visits-service', 'branch': params.VISITS_SERVICE_BRANCH, 'helmName': 'spring-petclinic-visits-service'],
                     ]
 
-                    // Tạo namespace nếu chưa có
                     sh "kubectl get namespace ${env.DEPLOY_NAMESPACE} || kubectl create namespace ${env.DEPLOY_NAMESPACE}"
 
-                    // Hàm lấy commit ID mới nhất của branch qua GitHub API
                     def getCommitId = { branch ->
-                        def apiUrl = "${env.GIT_REPO_CODE}/commits/${branch}".replace("https://github.com", "https://api.github.com/repos")
-                        echo "Query commit ID from: ${apiUrl}"
-                        def response = sh(script: "curl -s ${apiUrl}", returnStdout: true).trim()
-                        def json = readJSON text: response
-                        return json.sha ?: error("Cannot get commit ID for branch ${branch}")
+                        if (branch == "main") {
+                            return "latest"  // hoặc return "main"
+                        }
+
+                        // Fetch nếu nhánh chưa có local
+                        sh "git fetch origin ${branch}:${branch} || true"
+
+                        // Lấy commit id từ local branch đã fetch
+                        def commitId = sh(
+                            script: "git rev-parse origin/${branch}",
+                            returnStdout: true
+                        ).trim()
+
+                        if (!commitId) {
+                            error("Cannot get commit ID for branch '${branch}'")
+                        }
+
+                        return commitId
                     }
 
-                    // Map serviceName -> imageTag
                     def imageTags = [:]
 
-                    // Lấy tag cho từng service: nếu branch = main thì tag = latest; else lấy commit id
                     for (svc in services.keySet()) {
                         def repoName = services[svc]['repoName']
                         def branch = services[svc]['branch']?.trim()
@@ -110,13 +117,12 @@ pipeline {
                             imageTags[svc] = 'latest'
                         } else {
                             def commitId = getCommitId(branch)
-                            imageTags[svc] = commitId.substring(0, 7) // rút gọn commit id 7 ký tự
+                            imageTags[svc] = commitId.substring(0, 7)
                         }
                     }
 
                     echo "Image tags to deploy: ${imageTags}"
 
-                    // Deploy từng service với helm, truyền namespace, release name (tên release có thể đặt theo svc + namespace để tránh trùng)
                     for (svc in services.keySet()) {
                         def helmReleaseName = "${env.HELM_RELEASE}-${svc}-${env.DEPLOY_NAMESPACE}"
                         def helmChartPath = "./helm-chart/${env.HELM_CHART_DIR}"
@@ -125,7 +131,6 @@ pipeline {
 
                         echo "Deploying ${svc} with image tag ${imageTag} into namespace ${env.DEPLOY_NAMESPACE}"
 
-                        // Helm upgrade --install
                         sh """
                             helm upgrade --install ${helmReleaseName} ${helmChartPath} \
                             --namespace ${env.DEPLOY_NAMESPACE} \
@@ -135,10 +140,8 @@ pipeline {
                         """
                     }
 
-                    // In ra thông tin domain:port theo dạng NodePort
                     echo "Getting NodePort information for services in namespace ${env.DEPLOY_NAMESPACE}:"
                     for (svc in services.keySet()) {
-                        // Giả định service tên theo helmName, kiểu NodePort cổng 30000+
                         def serviceName = services[svc]['helmName']
                         def nodePort = sh(
                             script: "kubectl get svc ${serviceName} -n ${env.DEPLOY_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}' || echo 'NotFound'",
