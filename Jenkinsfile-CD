@@ -96,7 +96,7 @@ services:
                         kubectl get namespace ${namespace} || kubectl create namespace ${namespace}
                         helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
                         -f environments/dev-review/values-${namespace}.yaml \
-                        --namespace ${namespace} 
+                        --namespace ${namespace} --create-namespace 
                     """
                 }
             }
