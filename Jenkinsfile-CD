@@ -93,20 +93,9 @@ services:
                     def namespace = params.namespace.trim()
                     sh """
                         cd helm-chart
-                        echo "🗑️ Cleaning up existing namespace if exists..."
-                        kubectl delete namespace ${namespace} --ignore-not-found=true
-                
-                        echo "⏳ Waiting for namespace deletion to complete..."
-                        kubectl wait --for=delete namespace/${namespace} --timeout=60s || true
-                
-                        echo "🚀 Deploying with Helm..."
-                        helm upgrade --install ${releaseName} . \
-                            -f environments/dev-review/values-${namespace}.yaml \
-                            --namespace ${namespace} \
-                            --create-namespace \
-                            --wait \
-                            --timeout 10m
-                        
+                        helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
+                        -f environments/dev-review/values-${namespace}.yaml \
+                        --namespace ${namespace} --create-namespace 
                     """
                 }
             }
