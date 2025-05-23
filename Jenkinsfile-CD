@@ -93,10 +93,10 @@ services:
                     def namespace = params.namespace.trim()
                     sh """
                         cd helm-chart
-                        kubectl create namespace ${namespace} || true
+                        kubectl delete namespace ${namespace} || true
                         helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
                         -f environments/dev-review/values-${namespace}.yaml \
-                        --namespace ${namespace} 
+                        --namespace ${namespace} --create-namespace 
                     """
                 }
             }
