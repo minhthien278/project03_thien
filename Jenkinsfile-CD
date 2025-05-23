@@ -1,16 +1,6 @@
 pipeline {
     agent any
-
-    parameters {
-        string(name: 'DEPLOY_NAMESPACE', defaultValue: '', description: 'Tên namespace để deploy (ví dụ: long)')
-        string(name: 'API_GATEWAY_BRANCH', defaultValue: 'main', description: 'Branch của api-gateway')
-        string(name: 'CONFIG_SERVER_BRANCH', defaultValue: 'main', description: 'Branch của config-server')
-        string(name: 'CUSTOMERS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch của customers-service')
-        string(name: 'DISCOVERY_SERVER_BRANCH', defaultValue: 'main', description: 'Branch của discovery-server')
-        string(name: 'VETS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch của vets-service')
-        string(name: 'VISITS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch của visits-service')
-    }
-
+    
     environment {
         HELM_RELEASE = "petclinic"
         HELM_CHART_REPO = "https://github.com/HCMUS-DevOps-Projects/project02-k8s.git"
