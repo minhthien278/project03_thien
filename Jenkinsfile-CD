@@ -1,158 +1,95 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'DEPLOY_NAMESPACE', defaultValue: '', description: 'Tên namespace để deploy (ví dụ: long)')
+        string(name: 'API_GATEWAY_BRANCH', defaultValue: 'main', description: 'Branch của api-gateway')
+        string(name: 'CONFIG_SERVER_BRANCH', defaultValue: 'main', description: 'Branch của config-server')
+        string(name: 'CUSTOMERS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch của customers-service')
+        string(name: 'DISCOVERY_SERVER_BRANCH', defaultValue: 'main', description: 'Branch của discovery-server')
+        string(name: 'VETS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch của vets-service')
+        string(name: 'VISITS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch của visits-service')
+    }
+
     environment {
         HELM_RELEASE = "petclinic"
         HELM_CHART_REPO = "https://github.com/HCMUS-DevOps-Projects/project02-k8s.git"
-        HELM_CHART_DIR = "charts"
+        HELM_CHART_DIR = "helm-chart/charts"
         DEFAULT_NAMESPACE_PREFIX = "dev-review"
         GIT_REPO_CODE = "https://github.com/HCMUS-DevOps-Projects/project02.git"
         DOCKER_USER = "tlvu2004"
     }
 
-    parameters {
-        choice(name: 'ACTION', choices: ['Deploy', 'Undeploy'], description: 'Choose action: Deploy or Undeploy')
-        string(name: 'DEPLOY_NAMESPACE', defaultValue: '', description: 'Namespace for deployment (if empty, auto generate)')
-
-        string(name: 'API_GATEWAY_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-api-gateway')
-        string(name: 'ADMIN_SERVER_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-admin-server')
-        string(name: 'CONFIG_SERVER_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-config-server')
-        string(name: 'DISCOVERY_SERVER_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-discovery-server')
-        string(name: 'CUSTOMERS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-customers-service')
-        string(name: 'VISITS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-visits-service')
-        string(name: 'VETS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-vets-service')
-        string(name: 'GENAI_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-genai-service')
-    }
-
     stages {
-        stage('Clone Helm Repository') {
+        stage('Clone Helm Chart Repository') {
             steps {
-                sh "git clone ${env.HELM_CHART_REPO} project02-k8s"
+                sh "rm -rf helm-chart"
+                sh "git clone ${env.HELM_CHART_REPO} helm-chart"
             }
         }
 
-        stage('Print Configuration') {
+        stage('Clone Application Source Code Repository') {
             steps {
-                echo "Selected Action: ${params.ACTION}"
-                echo "Namespace: ${params.DEPLOY_NAMESPACE ?: 'Will auto-generate'}"
-                echo "Branches chosen:"
-                echo "ADMIN_SERVER_BRANCH = ${params.ADMIN_SERVER_BRANCH}"
-                echo "API_GATEWAY_BRANCH = ${params.API_GATEWAY_BRANCH}"
-                echo "CONFIG_SERVER_BRANCH = ${params.CONFIG_SERVER_BRANCH}"
-                echo "DISCOVERY_SERVER_BRANCH = ${params.DISCOVERY_SERVER_BRANCH}"
-                echo "CUSTOMERS_SERVICE_BRANCH = ${params.CUSTOMERS_SERVICE_BRANCH}"
-                echo "GENAI_SERVICE_BRANCH = ${params.GENAI_SERVICE_BRANCH}"
-                echo "VETS_SERVICE_BRANCH = ${params.VETS_SERVICE_BRANCH}"
-                echo "VISITS_SERVICE_BRANCH = ${params.VISITS_SERVICE_BRANCH}"
-            }
-        }
-
-        stage('Set Namespace') {
-            steps {
-                script {
-                    // Nếu user không nhập namespace, tạo tên namespace tự động: dev-review-<BUILD_ID>
-                    if (!params.DEPLOY_NAMESPACE?.trim()) {
-                        env.DEPLOY_NAMESPACE = "${env.DEFAULT_NAMESPACE_PREFIX}-${env.BUILD_ID}"
-                    } else {
-                        env.DEPLOY_NAMESPACE = params.DEPLOY_NAMESPACE.trim()
-                    }
-                    echo "Using namespace: ${env.DEPLOY_NAMESPACE}"
+                dir('source-code') {
+                    sh "git clone ${env.GIT_REPO_CODE} ."
                 }
             }
         }
 
-        stage('Handle Deploy or Undeploy') {
+        stage('Generate values.yaml') {
             steps {
                 script {
-                    if (params.ACTION == 'Undeploy') {
-                        echo "Deleting namespace ${env.DEPLOY_NAMESPACE}..."
-                        sh "kubectl delete namespace ${env.DEPLOY_NAMESPACE} --ignore-not-found"
-                        return
-                    }
+                    def namespace = params.DEPLOY_NAMESPACE?.trim() ?: "dev-${env.BUILD_USER_ID ?: 'unknown'}"
+                    def values = """
+global:
+  namespace: ${namespace}
 
-                    def services = [
-                        apiGateway: ['repoName': 'api-gateway', 'branch': params.API_GATEWAY_BRANCH, 'helmName': 'spring-petclinic-api-gateway'],
-                        adminServer: ['repoName': 'admin-server', 'branch': params.ADMIN_SERVER_BRANCH, 'helmName': 'spring-petclinic-admin-server'],
-                        configServer: ['repoName': 'config-server', 'branch': params.CONFIG_SERVER_BRANCH, 'helmName': 'spring-petclinic-config-server'],
-                        discoveryServer: ['repoName': 'discovery-server', 'branch': params.DISCOVERY_SERVER_BRANCH, 'helmName': 'spring-petclinic-discovery-server'],
-                        customersService: ['repoName': 'customers-service', 'branch': params.CUSTOMERS_SERVICE_BRANCH, 'helmName': 'spring-petclinic-customers-service'],
-                        genaiService: ['repoName': 'genai-service', 'branch': params.GENAI_SERVICE_BRANCH, 'helmName': 'spring-petclinic-genai-service'],
-                        vetsService: ['repoName': 'vets-service', 'branch': params.VETS_SERVICE_BRANCH, 'helmName': 'spring-petclinic-vets-service'],
-                        visitsService: ['repoName': 'visits-service', 'branch': params.VISITS_SERVICE_BRANCH, 'helmName': 'spring-petclinic-visits-service'],
-                    ]
+services:
+  api-gateway:
+    image:
+      tag: ${getTag("api-gateway", params.api-gateway)}
+    ingress:
+      host: petclinic-${namespace}.com
 
-                    sh "kubectl get namespace ${env.DEPLOY_NAMESPACE} || kubectl create namespace ${env.DEPLOY_NAMESPACE}"
+  config-server:
+    image:
+      tag: ${getTag("config-server", params.config-server)}
 
-                    def getCommitId = { branch ->
-                        if (branch == "main") {
-                            return "latest"  // hoặc return "main"
-                        }
+  customers-service:
+    image:
+      tag: ${getTag("customers-service", params.customers-service)}
 
-                        // Fetch nếu nhánh chưa có local
-                        sh "git fetch origin ${branch}:${branch} || true"
+  discovery-server:
+    image:
+      tag: ${getTag("discovery-server", params.discovery-server)}
 
-                        // Lấy commit id từ local branch đã fetch
-                        def commitId = sh(
-                            script: "git rev-parse origin/${branch}",
-                            returnStdout: true
-                        ).trim()
+  vets-service:
+    image:
+      tag: ${getTag("vets-service", params.vets-service)}
 
-                        if (!commitId) {
-                            error("Cannot get commit ID for branch '${branch}'")
-                        }
+  visits-service:
+    image:
+      tag: ${getTag("visits-service", params.visits-service)}
+"""
 
-                        return commitId
-                    }
+                    writeFile file: "helm-chart/environments/dev-review/values-${namespace}.yaml", text: values
+                    echo "Generated values-${namespace}.yaml"
+                }
+            }
+        }
 
-                    def imageTags = [:]
-
-                    for (svc in services.keySet()) {
-                        def repoName = services[svc]['repoName']
-                        def branch = services[svc]['branch']?.trim()
-                        if (!branch) {
-                            branch = 'main'
-                        }
-
-                        if (branch == 'main') {
-                            imageTags[svc] = 'latest'
-                        } else {
-                            def commitId = getCommitId(branch)
-                            imageTags[svc] = commitId.substring(0, 7)
-                        }
-                    }
-
-                    echo "Image tags to deploy: ${imageTags}"
-
-                    for (svc in services.keySet()) {
-                        def helmReleaseName = "${env.HELM_RELEASE}-${svc}-${env.DEPLOY_NAMESPACE}"
-                        def helmChartPath = "./helm-chart/${env.HELM_CHART_DIR}"
-                        def imageTag = imageTags[svc]
-                        def imageName = "${env.DOCKER_USER}/${services[svc]['helmName']}:${imageTag}"
-
-                        echo "Deploying ${svc} with image tag ${imageTag} into namespace ${env.DEPLOY_NAMESPACE}"
-
-                        sh """
-                            helm upgrade --install ${helmReleaseName} ${helmChartPath} \
-                            --namespace ${env.DEPLOY_NAMESPACE} \
-                            --set image.repository=${env.DOCKER_USER}/${services[svc]['helmName']} \
-                            --set image.tag=${imageTag} \
-                            --wait
-                        """
-                    }
-
-                    echo "Getting NodePort information for services in namespace ${env.DEPLOY_NAMESPACE}:"
-                    for (svc in services.keySet()) {
-                        def serviceName = services[svc]['helmName']
-                        def nodePort = sh(
-                            script: "kubectl get svc ${serviceName} -n ${env.DEPLOY_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}' || echo 'NotFound'",
-                            returnStdout: true
-                        ).trim()
-                        if (nodePort != 'NotFound') {
-                            echo "- Service ${serviceName}: http://<node-ip>:${nodePort}"
-                        } else {
-                            echo "- Service ${serviceName} not found or not exposed"
-                        }
-                    }
+        stage('Deploy to Kubernetes') {
+            when {
+                expression { return params.DEPLOY_NAMESPACE != null }
+            }
+            steps {
+                script {
+                    def namespace = params.DEPLOY_NAMESPACE?.trim()
+                    sh """
+                    helm upgrade --install ${HELM_RELEASE}-${namespace} ${HELM_CHART_DIR} \
+                      -f helm-chart/env/dev-review/values-${namespace}.yaml \
+                      --namespace ${namespace} --create-namespace 
+                    """
                 }
             }
         }
@@ -160,8 +97,19 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning up credentials and logout from Docker if necessary."
+            echo "🧹 Cleanup..."
             sh "docker logout || true"
         }
     }
+}
+
+def getTag(serviceName, branch) {
+    if (branch == "main") return "latest"
+
+    def commit = sh(
+        script: "cd source-code && git fetch origin ${branch} && git rev-parse origin/${branch}",
+        returnStdout: true
+    ).trim()
+
+    return commit.take(7) 
 }
