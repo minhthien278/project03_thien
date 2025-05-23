@@ -31,6 +31,8 @@ pipeline {
         stage('Generate values.yaml') {
             steps {
                 script {
+                    def apiGatewayTag = getTag("api-gateway", params.api_gateway)
+                    echo "api-gateway tag: ${apiGatewayTag}"
                     def values = """
 global:
   namespace: ${namespace}
@@ -81,30 +83,30 @@ services:
                 '''
             }
         }
-        stage('Deploy to Kubernetes') {
+    //     stage('Deploy to Kubernetes') {
            
-            // when {
-            //     expression { return params.DEPLOY_NAMESPACE != null }
-            // }
-            steps {
-                echo "✅ DEPLOY_NAMESPACE = '${params.namespace}'"
-                echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
-                script {
-                    def namespace = params.namespace.trim()
-                    sh """
-                        cd helm-chart
-                        while kubectl get namespace ${namespace} >/dev/null 2>&1; do
-                            echo "Waiting for namespace ${namespace} to be deleted..."
-                            sleep 2
-                        done
-                        helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
-                        -f environments/dev-review/values-${namespace}.yaml \
-                        --namespace ${namespace} --create-namespace 
-                    """
-                }
-            }
-        }
-    }
+    //         // when {
+    //         //     expression { return params.DEPLOY_NAMESPACE != null }
+    //         // }
+    //         steps {
+    //             echo "✅ DEPLOY_NAMESPACE = '${params.namespace}'"
+    //             echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
+    //             script {
+    //                 def namespace = params.namespace.trim()
+    //                 sh """
+    //                     cd helm-chart
+    //                     while kubectl get namespace ${namespace} >/dev/null 2>&1; do
+    //                         echo "Waiting for namespace ${namespace} to be deleted..."
+    //                         sleep 2
+    //                     done
+    //                     helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
+    //                     -f environments/dev-review/values-${namespace}.yaml \
+    //                     --namespace ${namespace} --create-namespace 
+    //                 """
+    //             }
+    //         }
+    //     }
+    // }
 
     post {
         always {
