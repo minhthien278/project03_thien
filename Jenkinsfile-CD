@@ -19,18 +19,17 @@ pipeline {
             }
         }
 
-        stage('Clone Application Source Code Repository') {
-            steps {
-                dir('source-code') {
-                    deleteDir()
-                    sh "git clone ${env.GIT_REPO_CODE} ."
-                }
-            }
-        }
+        // stage('Clone Application Source Code Repository') {
+        //     steps {
+        //         dir('source-code') {
+        //             deleteDir()
+        //             sh "git clone ${env.GIT_REPO_CODE} ."
+        //         }
+        //     }
+        // }
 
         stage('Generate values.yaml') {
             steps {
-                def config_server_tag = getTag("config-server", params.config_server)
                 def api_gateway_tag = getTag("api-gateway", params.api_gateway)
                 def customers_service_tag = getTag("customers-service", params.customers_service)
                 def discovery_server_tag = getTag("discovery-server", params.discovery_server)
@@ -108,11 +107,6 @@ services:
 
 def getTag(serviceName, branch) {
     if (branch == "main") return "latest"
-
-    def commit = sh(
-        script: "cd source-code && git fetch origin ${branch} && git rev-parse --short origin/${branch}",
-        returnStdout: true
-    ).trim()
-
-    return "${commit.take(7)}" 
+    def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+    return commit;
 }
