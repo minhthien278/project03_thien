@@ -73,12 +73,13 @@ services:
         }
 
         stage('Deploy to Kubernetes') {
-            echo "✅ DEPLOY_NAMESPACE = '${params.DEPLOY_NAMESPACE}'"
-            echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
+           
             // when {
             //     expression { return params.DEPLOY_NAMESPACE != null }
             // }
             steps {
+                echo "✅ DEPLOY_NAMESPACE = '${params.DEPLOY_NAMESPACE}'"
+                echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
                 script {
                     def namespace = params.DEPLOY_NAMESPACE.trim()
                     sh """
