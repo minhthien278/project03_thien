@@ -30,6 +30,12 @@ pipeline {
 
         stage('Generate values.yaml') {
             steps {
+                def config_server_tag = getTag("config-server", params.config_server)
+                def api_gateway_tag = getTag("api-gateway", params.api_gateway)
+                def customers_service_tag = getTag("customers-service", params.customers_service)
+                def discovery_server_tag = getTag("discovery-server", params.discovery_server)
+                def vets_service_tag = getTag("vets-service", params.vets_service)
+                def visits_service_tag = getTag("visits-service", params.visits_service)
                 script {
                     def values = """
 global:
@@ -38,30 +44,29 @@ global:
 services:
   api-gateway:
     image:
-      tag: ${getTag("api-gateway", params.api_gateway)}
+      tag: ${api_gateway_tag}
     ingress:
       host: petclinic-${namespace}.com
 
-
   config-server:
     image:
-      tag: ${getTag("config-server", params.config_server)}
+      tag: ${config_server_tag}
 
   customers-service:
     image:
-      tag: ${getTag("customers-service", params.customers_service)}
+      tag: ${customers_service_tag}
 
   discovery-server:
     image:
-      tag: ${getTag("discovery-server", params.discovery_server)}
+      tag: ${discovery_server_tag}
 
   vets-service:
     image:
-      tag: ${getTag("vets-service", params.vets_service)}
+      tag: ${vets_service_tag}
 
   visits-service:
     image:
-      tag: ${getTag("visits-service", params.visits_service)}
+      tag: ${visits_service_tag}
 """
 
                     writeFile file: "helm-chart/environments/dev-review/values-${namespace}.yaml", text: values
@@ -109,5 +114,5 @@ def getTag(serviceName, branch) {
         returnStdout: true
     ).trim()
 
-    return commit.take(7) 
+    return "${commit.take(7)}" 
 }
