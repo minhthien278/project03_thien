@@ -80,8 +80,9 @@ services:
                 script {
                     def namespace = params.DEPLOY_NAMESPACE.trim()
                     sh """
-                    helm upgrade --install ${HELM_RELEASE}-${namespace} ${HELM_CHART_DIR} \
-                      -f helm-chart/environments/dev-review/values-${namespace}.yaml \
+                    cd helm-chart
+                    helm upgrade --install ${env.HELM_RELEASE}-${namespace} \
+                      -f environments/dev-review/values-${namespace}.yaml \
                       --namespace ${namespace} --create-namespace 
                     """
                 }
