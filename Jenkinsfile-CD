@@ -41,29 +41,29 @@ global:
 services:
   api-gateway:
     image:
-      tag: ${getTag("api-gateway", params.api_gateway)}
+      tag: "${getTag("api-gateway", params.api_gateway)}"
     ingress:
       host: petclinic-${namespace}.com
 
   config-server:
     image:
-      tag: ${getTag("config-server", params.config_server)}
+      tag: "${getTag("config-server", params.config_server)}"
 
   customers-service:
     image:
-      tag: ${getTag("customers-service", params.customers_service)}
+      tag: "${getTag("customers-service", params.customers_service)}"
 
   discovery-server:
     image:
-      tag: ${getTag("discovery-server", params.discovery_server)}
+      tag: "${getTag("discovery-server", params.discovery_server)}"
 
   vets-service:
     image:
-      tag: ${getTag("vets-service", params.vets_service)}
+      tag: "${getTag("vets-service", params.vets_service)}"
 
   visits-service:
     image:
-      tag: ${getTag("visits-service", params.visits_service)}
+      tag: "${getTag("visits-service", params.visits_service)}"
 """
 
                     writeFile file: "helm-chart/environments/dev-review/values-${namespace}.yaml", text: values
