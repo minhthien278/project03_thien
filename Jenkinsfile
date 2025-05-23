@@ -3,12 +3,10 @@ pipeline {
 
     environment {
         SERVICES = """
-            spring-petclinic-admin-server
             spring-petclinic-api-gateway
             spring-petclinic-config-server
             spring-petclinic-customers-service
             spring-petclinic-discovery-server
-            spring-petclinic-genai-service
             spring-petclinic-vets-service
             spring-petclinic-visits-service
         """
@@ -77,6 +75,9 @@ pipeline {
             steps {
                 script {
                     def imageTag = env.TAG_NAME ?: sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    if (env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'main') {
+                        imageTag = "latest"
+                    }
                     env.IMAGE_TAG = imageTag
 
                     def services = []
@@ -105,14 +106,6 @@ pipeline {
                                 --build-arg EXPOSED_PORT=8080 . && \\
                             docker push ${env.DOCKER_USER}/${service}:${imageTag}
                         """
-
-                        // If on main branch or tag, also push latest
-                        if (env.BRANCH_NAME == 'main' || env.TAG_NAME) {
-                            sh """
-                                docker tag ${env.DOCKER_USER}/${service}:${imageTag} ${env.DOCKER_USER}/${service}:latest
-                                docker push ${env.DOCKER_USER}/${service}:latest
-                            """
-                        }
                     }
                 }
             }
