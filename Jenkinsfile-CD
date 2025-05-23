@@ -118,7 +118,7 @@ def getTag(serviceName, branch) {
     if (branch == "main") return "latest"
 
     def commit = sh(
-        script: "cd source-code && git fetch origin ${branch} && git rev-parse origin/${branch}",
+        script: "cd source-code && git fetch origin ${branch} && git rev-parse --short origin/${branch}",
         returnStdout: true
     ).trim()
 
