@@ -3,10 +3,12 @@ pipeline {
 
     environment {
         HELM_RELEASE = "petclinic"
-        HELM_CHART_PATH = "./k8s/chart"
+        HELM_CHART_REPO = "https://github.com/HCMUS-DevOps-Projects/project02-k8s.git"
+        HELM_CHART_DIR = "charts" // thư mục chứa Helm chart sau khi clone (có thể để là '.' nếu Helm chart nằm ở root repo)
         DEFAULT_NAMESPACE_PREFIX = "dev-review"
-        GIT_REPO_API = "https://api.github.com/repos/your-github-org/spring-petclinic-" // prefix repo URL, append service name
-        DOCKER_USER = "your-dockerhub-username"  // Bạn có thể set thành parameter hoặc lấy từ credentials nếu cần
+
+        GIT_REPO_CODE = "https://github.com/HCMUS-DevOps-Projects/project02.git"
+        DOCKER_USER = "tlvu2004" // bạn có thể thay thế hoặc lấy từ credential
     }
 
     parameters {
@@ -24,6 +26,12 @@ pipeline {
     }
 
     stages {
+        stage('Clone Helm Chart') {
+            steps {
+                sh "rm -rf helm-chart && git clone ${env.HELM_CHART_REPO} helm-chart"
+            }
+        }
+
         stage('Print Configuration') {
             steps {
                 echo "Selected Action: ${params.ACTION}"
@@ -79,12 +87,12 @@ pipeline {
                     sh "kubectl get namespace ${env.DEPLOY_NAMESPACE} || kubectl create namespace ${env.DEPLOY_NAMESPACE}"
 
                     // Hàm lấy commit ID mới nhất của branch qua GitHub API
-                    def getCommitId = { repoName, branch ->
-                        def apiUrl = "${env.GIT_REPO_API}${repoName}/commits/${branch}"
+                    def getCommitId = { branch ->
+                        def apiUrl = "${env.GIT_REPO_CODE}/commits/${branch}".replace("https://github.com", "https://api.github.com/repos")
                         echo "Query commit ID from: ${apiUrl}"
                         def response = sh(script: "curl -s ${apiUrl}", returnStdout: true).trim()
                         def json = readJSON text: response
-                        return json.sha ?: error("Cannot get commit ID for ${repoName} branch ${branch}")
+                        return json.sha ?: error("Cannot get commit ID for branch ${branch}")
                     }
 
                     // Map serviceName -> imageTag
@@ -101,7 +109,7 @@ pipeline {
                         if (branch == 'main') {
                             imageTags[svc] = 'latest'
                         } else {
-                            def commitId = getCommitId(repoName, branch)
+                            def commitId = getCommitId(branch)
                             imageTags[svc] = commitId.substring(0, 7) // rút gọn commit id 7 ký tự
                         }
                     }
@@ -111,7 +119,7 @@ pipeline {
                     // Deploy từng service với helm, truyền namespace, release name (tên release có thể đặt theo svc + namespace để tránh trùng)
                     for (svc in services.keySet()) {
                         def helmReleaseName = "${env.HELM_RELEASE}-${svc}-${env.DEPLOY_NAMESPACE}"
-                        def helmChartPath = env.HELM_CHART_PATH + "/" + services[svc]['helmName']
+                        def helmChartPath = "./helm-chart/${env.HELM_CHART_DIR}"
                         def imageTag = imageTags[svc]
                         def imageName = "${env.DOCKER_USER}/${services[svc]['helmName']}:${imageTag}"
 
