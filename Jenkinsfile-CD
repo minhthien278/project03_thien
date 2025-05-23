@@ -8,6 +8,7 @@ pipeline {
         DEFAULT_NAMESPACE_PREFIX = "dev-review"
         GIT_REPO_CODE = "https://github.com/HCMUS-DevOps-Projects/project02.git"
         DOCKER_USER = "tlvu2004"
+        KUBECONFIG = credentials('kubeconfig-file')
     }
 
     stages {
@@ -71,7 +72,15 @@ services:
                 }
             }
         }
-
+        stage('Verify Kubernetes Access') {
+            steps {
+                sh '''
+                    echo "Using kubeconfig: $KUBECONFIG"
+                    kubectl cluster-info
+                    kubectl get nodes
+                '''
+            }
+        }
         stage('Deploy to Kubernetes') {
            
             // when {
