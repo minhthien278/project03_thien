@@ -3,8 +3,9 @@ pipeline {
 
     environment {
         HELM_RELEASE = "petclinic"
-        HELM_CHART_PATH = "./k8s/chart" // change this if your Helm chart is in another location
+        HELM_CHART_PATH = "./k8s/chart"
         K8S_NAMESPACE = "dev-review"
+        GIT_REPO_API = "https://api.github.com/repos/your-github-org/spring-petclinic-" // prefix repo URL, append service name
     }
 
     parameters {
@@ -24,7 +25,7 @@ pipeline {
         stage('Print Configuration') {
             steps {
                 echo "Selected Action: ${params.ACTION}"
-                echo "Using the following branches:"
+                echo "Branches chosen:"
                 echo "ADMIN_SERVER_BRANCH = ${params.ADMIN_SERVER_BRANCH}"
                 echo "API_GATEWAY_BRANCH = ${params.API_GATEWAY_BRANCH}"
                 echo "CONFIG_SERVER_BRANCH = ${params.CONFIG_SERVER_BRANCH}"
@@ -36,26 +37,80 @@ pipeline {
             }
         }
 
+        stage('Resolve Commit IDs for Branches') {
+            when {
+                expression { params.ACTION == 'Deploy' }
+            }
+            steps {
+                script {
+                    def services = [
+                        apiGateway: ['repoName': 'api-gateway', 'branch': params.API_GATEWAY_BRANCH],
+                        adminServer: ['repoName': 'admin-server', 'branch': params.ADMIN_SERVER_BRANCH],
+                        configServer: ['repoName': 'config-server', 'branch': params.CONFIG_SERVER_BRANCH],
+                        discoveryServer: ['repoName': 'discovery-server', 'branch': params.DISCOVERY_SERVER_BRANCH],
+                        customersService: ['repoName': 'customers-service', 'branch': params.CUSTOMERS_SERVICE_BRANCH],
+                        genaiService: ['repoName': 'genai-service', 'branch': params.GENAI_SERVICE_BRANCH],
+                        vetsService: ['repoName': 'vets-service', 'branch': params.VETS_SERVICE_BRANCH],
+                        visitsService: ['repoName': 'visits-service', 'branch': params.VISITS_SERVICE_BRANCH],
+                    ]
+
+                    // Hàm lấy commit ID mới nhất của branch qua GitHub API
+                    def getCommitId = { repoName, branch ->
+                        def apiUrl = "${env.GIT_REPO_API}${repoName}/commits/${branch}"
+                        echo "Query commit ID from: ${apiUrl}"
+                        def response = sh(script: "curl -s ${apiUrl}", returnStdout: true).trim()
+                        def json = readJSON text: response
+                        return json.sha ?: error("Cannot get commit ID for ${repoName} branch ${branch}")
+                    }
+
+                    // Lấy commit IDs cho từng service
+                    def commitTags = [:]
+                    for (svc in services.keySet()) {
+                        def repoName = services[svc]['repoName']
+                        def branch = services[svc]['branch']?.trim()
+                        if (!branch) branch = 'main' // fallback default
+                        def commitId = getCommitId(repoName, branch)
+                        echo "Service ${svc} (${repoName}) branch '${branch}' commitId: ${commitId}"
+                        commitTags[svc] = commitId
+                    }
+
+                    // Save commitTags to env for later use
+                    env.HELM_SET_PARAMS = [
+                        "admin-server.image.tag=${commitTags.adminServer}",
+                        "api-gateway.image.tag=${commitTags.apiGateway}",
+                        "config-server.image.tag=${commitTags.configServer}",
+                        "discovery-server.image.tag=${commitTags.discoveryServer}",
+                        "customers-service.image.tag=${commitTags.customersService}",
+                        "genai-service.image.tag=${commitTags.genaiService}",
+                        "vets-service.image.tag=${commitTags.vetsService}",
+                        "visits-service.image.tag=${commitTags.visitsService}"
+                    ].join(',')
+                    echo "Resolved Helm set params: ${env.HELM_SET_PARAMS}"
+                }
+            }
+        }
+
         stage('Deploy or Undeploy') {
             steps {
                 script {
                     if (params.ACTION == 'Deploy') {
-                        def helmSetParams = [
-                            "admin-server.image.tag=${params.ADMIN_SERVER_BRANCH}",
-                            "api-gateway.image.tag=${params.API_GATEWAY_BRANCH}",
-                            "config-server.image.tag=${params.CONFIG_SERVER_BRANCH}",
-                            "discovery-server.image.tag=${params.DISCOVERY_SERVER_BRANCH}",
-                            "customers-service.image.tag=${params.CUSTOMERS_SERVICE_BRANCH}",
-                            "genai-service.image.tag=${params.GENAI_SERVICE_BRANCH}",
-                            "vets-service.image.tag=${params.VETS_SERVICE_BRANCH}",
-                            "visits-service.image.tag=${params.VISITS_SERVICE_BRANCH}"
-                        ].join(',')
-
                         sh """
                             helm upgrade --install ${env.HELM_RELEASE} ${env.HELM_CHART_PATH} \
                             --namespace ${env.K8S_NAMESPACE} --create-namespace \
-                            --set ${helmSetParams}
+                            --set ${env.HELM_SET_PARAMS}
                         """
+
+                        echo "Waiting 30 seconds for services to become ready..."
+                        sleep 30
+
+                        echo "Fetching NodePort services in namespace ${env.K8S_NAMESPACE}..."
+                        sh """
+                            kubectl get svc -n ${env.K8S_NAMESPACE} -o json | jq -r '
+                            .items[] | select(.spec.type=="NodePort") | 
+                            "\(.metadata.name): NodePort(s) = \(.spec.ports[]?.nodePort // "none")"
+                            '
+                        """
+                        echo "Developer should map these NodePorts with your cluster's Worker node IP in your hosts file to test."
                     } else {
                         sh """
                             helm uninstall ${env.HELM_RELEASE} --namespace ${env.K8S_NAMESPACE} || true
