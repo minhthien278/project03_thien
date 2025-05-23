@@ -28,7 +28,6 @@ pipeline {
                     if (tagName) {
                         echo "Release tag detected: ${tagName}"
                         env.TAG_NAME = tagName
-                        env.CHANGED_SERVICES = env.SERVICES
                     }
                 }
             }
@@ -74,14 +73,18 @@ pipeline {
         stage('Build and Push Docker Images') {
             steps {
                 script {
-                    def imageTag = env.TAG_NAME ?: sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    if (env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'main') {
-                        imageTag = "latest"
+                    def isMainBranch = (env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main')
+                    def imageTag = ''
+                    if (env.TAG_NAME) {
+                        imageTag = env.TAG_NAME
+                    } else if (isMainBranch) {
+                        imageTag = 'latest'
+                    } else {
+                        imageTag = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     }
                     env.IMAGE_TAG = imageTag
-
                     def services = []
-                    if (env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'main' || env.TAG_NAME) {
+                    if (isMainBranch || env.TAG_NAME) {
                         services = SERVICES.split("\n").collect { it.trim() }.findAll { it }
                     } else {
                         services = env.CHANGED_SERVICES.split(',').collect { it.trim() }
