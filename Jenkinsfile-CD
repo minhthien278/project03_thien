@@ -82,8 +82,8 @@ services:
                     sh """
                         cd helm-chart
                         helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
-                        -f environments/dev-review/values-${namespace}.yaml \
-                        --namespace ${namespace} --create-namespace || true
+                        --namespace ${namespace} --create-namespace \
+                        -f environments/dev-review/values-${namespace}.yaml 
                     """
                 }
             }
