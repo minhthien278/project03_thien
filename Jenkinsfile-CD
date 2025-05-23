@@ -78,10 +78,10 @@ services:
             //     expression { return params.DEPLOY_NAMESPACE != null }
             // }
             steps {
-                echo "✅ DEPLOY_NAMESPACE = '${params.DEPLOY_NAMESPACE}'"
+                echo "✅ DEPLOY_NAMESPACE = '${params.namespace}'"
                 echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
                 script {
-                    def namespace = params.DEPLOY_NAMESPACE.trim()
+                    def namespace = params.namespace.trim()
                     sh """
                         cd helm-chart
                         helm upgrade --install ${env.HELM_RELEASE}-${namespace} \
