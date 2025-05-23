@@ -1,0 +1,78 @@
+pipeline {
+    agent any
+
+    environment {
+        HELM_RELEASE = "petclinic"
+        HELM_CHART_PATH = "./k8s/chart" // change this if your Helm chart is in another location
+        K8S_NAMESPACE = "dev-review"
+    }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['Deploy', 'Undeploy'], description: 'Choose action: Deploy or Undeploy')
+
+        string(name: 'API_GATEWAY_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-api-gateway')
+        string(name: 'ADMIN_SERVER_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-admin-server')
+        string(name: 'CONFIG_SERVER_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-config-server')
+        string(name: 'DISCOVERY_SERVER_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-discovery-server')
+        string(name: 'CUSTOMERS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-customers-service')
+        string(name: 'VISITS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-visits-service')
+        string(name: 'VETS_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-vets-service')
+        string(name: 'GENAI_SERVICE_BRANCH', defaultValue: 'main', description: 'Branch for spring-petclinic-genai-service')
+    }
+
+    stages {
+        stage('Print Configuration') {
+            steps {
+                echo "Selected Action: ${params.ACTION}"
+                echo "Using the following branches:"
+                echo "ADMIN_SERVER_BRANCH = ${params.ADMIN_SERVER_BRANCH}"
+                echo "API_GATEWAY_BRANCH = ${params.API_GATEWAY_BRANCH}"
+                echo "CONFIG_SERVER_BRANCH = ${params.CONFIG_SERVER_BRANCH}"
+                echo "DISCOVERY_SERVER_BRANCH = ${params.DISCOVERY_SERVER_BRANCH}"
+                echo "CUSTOMERS_SERVICE_BRANCH = ${params.CUSTOMERS_SERVICE_BRANCH}"
+                echo "GENAI_SERVICE_BRANCH = ${params.GENAI_SERVICE_BRANCH}"
+                echo "VETS_SERVICE_BRANCH = ${params.VETS_SERVICE_BRANCH}"
+                echo "VISITS_SERVICE_BRANCH = ${params.VISITS_SERVICE_BRANCH}"
+            }
+        }
+
+        stage('Deploy or Undeploy') {
+            steps {
+                script {
+                    if (params.ACTION == 'Deploy') {
+                        def helmSetParams = [
+                            "admin-server.image.tag=${params.ADMIN_SERVER_BRANCH}",
+                            "api-gateway.image.tag=${params.API_GATEWAY_BRANCH}",
+                            "config-server.image.tag=${params.CONFIG_SERVER_BRANCH}",
+                            "discovery-server.image.tag=${params.DISCOVERY_SERVER_BRANCH}",
+                            "customers-service.image.tag=${params.CUSTOMERS_SERVICE_BRANCH}",
+                            "genai-service.image.tag=${params.GENAI_SERVICE_BRANCH}",
+                            "vets-service.image.tag=${params.VETS_SERVICE_BRANCH}",
+                            "visits-service.image.tag=${params.VISITS_SERVICE_BRANCH}"
+                        ].join(',')
+
+                        sh """
+                            helm upgrade --install ${env.HELM_RELEASE} ${env.HELM_CHART_PATH} \
+                            --namespace ${env.K8S_NAMESPACE} --create-namespace \
+                            --set ${helmSetParams}
+                        """
+                    } else {
+                        sh """
+                            helm uninstall ${env.HELM_RELEASE} --namespace ${env.K8S_NAMESPACE} || true
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Docker Cleanup') {
+            steps {
+                sh '''
+                    echo "[Docker cleanup]"
+                    docker logout || true
+                    docker system prune -af || true
+                '''
+            }
+        }
+    }
+}
