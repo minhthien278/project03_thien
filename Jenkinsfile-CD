@@ -41,7 +41,6 @@ services:
   api-gateway:
     image:
       tag: ${getTag("api-gateway", params.api_gateway)}
-      echo "tag: ${getTag("api-gateway", params.api_gateway)}"
     ingress:
       host: petclinic-${namespace}.com
 
@@ -61,12 +60,10 @@ services:
   vets-service:
     image:
       tag: ${getTag("vets-service", params.vets_service)}
-      echo "tag: ${getTag("vets-service", params.vets_service)}"
 
   visits-service:
     image:
       tag: ${getTag("visits-service", params.visits_service)}
-      echo "tag: ${getTag("visits-service", params.visits_service)}"
 """
 
                     writeFile file: "helm-chart/environments/dev-review/values-${namespace}.yaml", text: values
@@ -74,38 +71,28 @@ services:
                 }
             }
         }
-        stage('Verify Kubernetes Access') {
+        stage('Deploy to Kubernetes') {           
+            // when {
+            //     expression { return params.DEPLOY_NAMESPACE != null }
+            // }
             steps {
-                sh '''
-                    echo "Using kubeconfig: $KUBECONFIG"
-                    kubectl cluster-info
-                    kubectl get nodes
-                '''
+                echo "✅ DEPLOY_NAMESPACE = '${params.namespace}'"
+                echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
+                script {
+                    def namespace = params.namespace.trim()
+                    sh """
+                        cd helm-chart
+                        while kubectl get namespace ${namespace} >/dev/null 2>&1; do
+                            echo "Waiting for namespace ${namespace} to be deleted..."
+                            sleep 2
+                        done
+                        helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
+                        -f environments/dev-review/values-${namespace}.yaml \
+                        --namespace ${namespace} --create-namespace 
+                    """
+                }
             }
         }
-    //     stage('Deploy to Kubernetes') {
-           
-    //         // when {
-    //         //     expression { return params.DEPLOY_NAMESPACE != null }
-    //         // }
-    //         steps {
-    //             echo "✅ DEPLOY_NAMESPACE = '${params.namespace}'"
-    //             echo "✅ HELM_RELEASE = '${env.HELM_RELEASE}'"
-    //             script {
-    //                 def namespace = params.namespace.trim()
-    //                 sh """
-    //                     cd helm-chart
-    //                     while kubectl get namespace ${namespace} >/dev/null 2>&1; do
-    //                         echo "Waiting for namespace ${namespace} to be deleted..."
-    //                         sleep 2
-    //                     done
-    //                     helm upgrade --install ${env.HELM_RELEASE}-${namespace} . \
-    //                     -f environments/dev-review/values-${namespace}.yaml \
-    //                     --namespace ${namespace} --create-namespace 
-    //                 """
-    //             }
-    //         }
-    //     }
     }
 
     post {
