@@ -1,6 +1,6 @@
 pipeline {
     agent any
-    
+
     environment {
         HELM_RELEASE = "petclinic"
         HELM_CHART_REPO = "https://github.com/HCMUS-DevOps-Projects/project02-k8s.git"
@@ -21,6 +21,7 @@ pipeline {
         stage('Clone Application Source Code Repository') {
             steps {
                 dir('source-code') {
+                    deleteDir()
                     sh "git clone ${env.GIT_REPO_CODE} ."
                 }
             }
