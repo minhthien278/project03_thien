@@ -73,18 +73,14 @@ pipeline {
         stage('Build And Push Docker Images') {
             steps {
                 script {
-                    def isMainBranch = (env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main')
                     def imageTag = ''
                     if (env.TAG_NAME) {
                         imageTag = env.TAG_NAME
-                    } else if (isMainBranch) {
-                        imageTag = 'latest'
                     } else {
                         imageTag = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     }
-                    env.IMAGE_TAG = imageTag
                     def services = []
-                    if (isMainBranch || env.TAG_NAME) {
+                    if (env.BRANCH_NAME == 'main' || env.TAG_NAME) {
                         services = SERVICES.split("\n").collect { it.trim() }.findAll { it }
                     } else {
                         services = env.CHANGED_SERVICES.split(',').collect { it.trim() }
@@ -107,13 +103,76 @@ pipeline {
                                 -f ../docker/Dockerfile \\
                                 --build-arg ARTIFACT_NAME=target/${service}-${ARTIFACT_VERSION} \\
                                 --build-arg EXPOSED_PORT=8080 . && \\
-                            docker push ${env.DOCKER_USER}/${service}:${imageTag}
                         """
+                        sh "docker push ${env.DOCKER_USER}/${service}:${imageTag}"
+                        if (env.BRANCH_NAME == 'main'){
+                            sh "docker tag ${env.DOCKER_USER}/${service}:${imageTag} ${env.DOCKER_USER}/${service}:latest"
+                            sh "docker push ${env.DOCKER_USER}/${service}:latest"
+                        }
                     }
                 }
             }
         }
+        stage ('Push Commit To Helm Repo') {
+            when {
+                expression { return env.TAG_NAME || env.BRANCH_NAME == 'main' }
+            }
+            steps {
+                script {    
+                    sh """
+                        git clone https://github.com/HCMUS-DevOps-Projects/project02-k8s helm
+                        cd helm
+                        git config user.name "jenkins"
+                        git config user.email "jenkins@example.com"
+                    """
+                    sh """
+                        cd k8s 
+                        old_version=$(grep '^version:' Chart.yaml | cut -d' ' -f2)
+                        echo "Old version: $old_version"
 
+                        tmp1=$(echo "$old_version" | cut -d. -f1)
+                        tmp2=$(echo "$old_version" | cut -d. -f2)
+                        patch=$(echo "$old_version" | cut -d. -f3)
+                            
+                        new_patch=$((patch + 1))
+                        new_version="$tmp1.$tmp2.$new_patch"
+                        echo "New version: $new_version"
+
+                        # Update version using sed
+                        sed -i "s/^version: .*/version: $new_version/" Chart.yaml
+                    """
+                        if (env.TAG_NAME) {
+                            echo "Deploying to Kubernetes with tag: ${env.TAG_NAME}"
+                            COMMIT_MESSAGE = "Deploy for tag ${env.TAG_NAME}"
+                            sh '''
+                                cd k8s
+                                sed -i "s/^imageTag: .*/imageTag: \\&tag ${TAG_NAME}/" environments/values-staging.yaml
+                            ''' 
+                            echo "Update tag for all services to ${env.TAG_NAME} in environments/values-staging.yaml"
+                    } else {
+                        echo "Deploying to Kubernetes with branch: main"
+                        env.CHANGED_SERVICES.split(',').each { fullName ->
+                            def shortName = fullName.replaceFirst('spring-petclinic-', '')
+                            def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+d
+                            sh """
+                                cd k8s
+                                sed -i '/${shortName}:/{n;n;s/tag:.*/tag: ${commit}/}' environments/values-dev.yaml
+                            """
+                            echo "✅ Updated tag for ${shortName} to ${commit} in environments/values-dev.yaml"
+                        }
+
+                            COMMIT_MESSAGE = "Deploy to helm repo with commit ${commit}"
+                        }
+                        sh """
+                            cd k8s
+                            git add .
+                            git commit -m "${COMMIT_MESSAGE}"
+                            git push origin main
+                        """
+                }
+            }
+        }
         stage('Docker Cleanup And Logout') {
             steps {
                 script {
@@ -124,19 +183,10 @@ pipeline {
             }
         }
     }
-    stage ('Push Commit To Helm Repo') {
-        when {
-            expression { return env.TAG_NAME || env.BRANCH_NAME == 'main' }
-        }
-        steps {
-            script {
-                
-            }
-        }
-    }
+    
     post {
         success {
-            echo "CI pipeline finished. Built tag: ${env.IMAGE_TAG}"
+            echo "CI pipeline finished"
         }
         failure {
             echo "CI pipeline failed!"
