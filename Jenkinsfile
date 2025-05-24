@@ -140,7 +140,7 @@ pipeline {
                     
                     // Update Chart version
                     sh """
-                        cd helm/project02-k8s
+                        cd helm
                         old_version=\$(grep '^version:' Chart.yaml | cut -d' ' -f2)
                         echo "Old version: \$old_version"
 
