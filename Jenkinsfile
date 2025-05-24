@@ -70,7 +70,7 @@ pipeline {
             }
         }
 
-        stage('Build and Push Docker Images') {
+        stage('Build And Push Docker Images') {
             steps {
                 script {
                     def isMainBranch = (env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main')
@@ -114,7 +114,7 @@ pipeline {
             }
         }
 
-        stage('Docker Cleanup and Logout') {
+        stage('Docker Cleanup And Logout') {
             steps {
                 script {
                     echo "Cleaning up Docker and logging out..."
@@ -124,7 +124,16 @@ pipeline {
             }
         }
     }
-
+    stage ('Push Commit To Helm Repo') {
+        when {
+            expression { return env.TAG_NAME || env.BRANCH_NAME == 'main' }
+        }
+        steps {
+            script {
+                
+            }
+        }
+    }
     post {
         success {
             echo "CI pipeline finished. Built tag: ${env.IMAGE_TAG}"
