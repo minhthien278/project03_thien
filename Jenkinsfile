@@ -113,6 +113,7 @@ pipeline {
                 }
             }
         }
+        
         stage ('Push Commit To Helm Repo') {
             when {
                 expression { return env.TAG_NAME || env.BRANCH_NAME == 'main' }
@@ -126,52 +127,61 @@ pipeline {
                         git config user.name "jenkins"
                         git config user.email "jenkins@example.com"
                     """
+                    
+                    // Update Chart version
                     sh """
-                        cd k8s 
-                        old_version=$(grep '^version:' Chart.yaml | cut -d' ' -f2)
-                        echo "Old version: $old_version"
+                        cd helm/project02-k8s
+                        old_version=\$(grep '^version:' Chart.yaml | cut -d' ' -f2)
+                        echo "Old version: \$old_version"
 
-                        tmp1=$(echo "$old_version" | cut -d. -f1)
-                        tmp2=$(echo "$old_version" | cut -d. -f2)
-                        patch=$(echo "$old_version" | cut -d. -f3)
+                        tmp1=\$(echo "\$old_version" | cut -d. -f1)
+                        tmp2=\$(echo "\$old_version" | cut -d. -f2)
+                        patch=\$(echo "\$old_version" | cut -d. -f3)
                             
-                        new_patch=$((patch + 1))
-                        new_version="$tmp1.$tmp2.$new_patch"
-                        echo "New version: $new_version"
+                        new_patch=\$((patch + 1))
+                        new_version="\$tmp1.\$tmp2.\$new_patch"
+                        echo "New version: \$new_version"
 
                         # Update version using sed
-                        sed -i "s/^version: .*/version: $new_version/" Chart.yaml
+                        sed -i "s/^version: .*/version: \$new_version/" Chart.yaml
                     """
-                        if (env.TAG_NAME) {
-                            echo "Deploying to Kubernetes with tag: ${env.TAG_NAME}"
-                            COMMIT_MESSAGE = "Deploy for tag ${env.TAG_NAME}"
-                            sh '''
-                                cd k8s
-                                sed -i "s/^imageTag: .*/imageTag: \\&tag ${TAG_NAME}/" environments/values-staging.yaml
-                            ''' 
-                            echo "Update tag for all services to ${env.TAG_NAME} in environments/values-staging.yaml"
+                    
+                    def COMMIT_MESSAGE = ""
+                    
+                    if (env.TAG_NAME) {
+                        echo "Deploying to Kubernetes with tag: ${env.TAG_NAME}"
+                        COMMIT_MESSAGE = "Deploy for tag ${env.TAG_NAME}"
+                        sh """
+                            cd helm/k8s
+                            sed -i "s/^imageTag: .*/imageTag: \\&tag ${env.TAG_NAME}/" environments/values-staging.yaml
+                        """ 
+                        echo "Update tag for all services to ${env.TAG_NAME} in environments/values-staging.yaml"
                     } else {
                         echo "Deploying to Kubernetes with branch: main"
-                        env.CHANGED_SERVICES.split(',').each { fullName ->
-                            def shortName = fullName.replaceFirst('spring-petclinic-', '')
-                            sh """
-                                cd k8s
-                                sed -i '/${shortName}:/{n;n;s/tag:.*/tag: ${commit}/}' environments/values-dev.yaml
-                            """
-                            echo "Updated tag for ${shortName} to ${commit} in environments/values-dev.yaml"
+                        COMMIT_MESSAGE = "Deploy to helm repo with commit ${commit}"
+                        
+                        if (env.CHANGED_SERVICES) {
+                            env.CHANGED_SERVICES.split(',').each { fullName ->
+                                def shortName = fullName.replaceFirst('spring-petclinic-', '')
+                                sh """
+                                    cd helm/project02-k8s
+                                    sed -i '/${shortName}:/{n;n;s/tag:.*/tag: ${commit}/}' environments/values-dev.yaml
+                                """
+                                echo "Updated tag for ${shortName} to ${commit} in environments/values-dev.yaml"
+                            }
                         }
-
-                            COMMIT_MESSAGE = "Deploy to helm repo with commit ${commit}"
-                        }
-                        sh """
-                            cd k8s
-                            git add .
-                            git commit -m "${COMMIT_MESSAGE}"
-                            git push origin main
-                        """
+                    }
+                    
+                    sh """
+                        cd helm/project02-k8s
+                        git add .
+                        git commit -m "${COMMIT_MESSAGE}"
+                        git push origin main
+                    """
                 }
             }
         }
+        
         stage('Docker Cleanup And Logout') {
             steps {
                 script {
