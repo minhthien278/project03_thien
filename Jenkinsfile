@@ -118,7 +118,8 @@ pipeline {
                 expression { return env.TAG_NAME || env.BRANCH_NAME == 'main' }
             }
             steps {
-                script {    
+                script { 
+                    def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()   
                     sh """
                         git clone https://github.com/HCMUS-DevOps-Projects/project02-k8s helm
                         cd helm
@@ -153,13 +154,11 @@ pipeline {
                         echo "Deploying to Kubernetes with branch: main"
                         env.CHANGED_SERVICES.split(',').each { fullName ->
                             def shortName = fullName.replaceFirst('spring-petclinic-', '')
-                            def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-d
                             sh """
                                 cd k8s
                                 sed -i '/${shortName}:/{n;n;s/tag:.*/tag: ${commit}/}' environments/values-dev.yaml
                             """
-                            echo "✅ Updated tag for ${shortName} to ${commit} in environments/values-dev.yaml"
+                            echo "Updated tag for ${shortName} to ${commit} in environments/values-dev.yaml"
                         }
 
                             COMMIT_MESSAGE = "Deploy to helm repo with commit ${commit}"
