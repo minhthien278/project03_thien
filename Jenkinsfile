@@ -147,7 +147,7 @@ pipeline {
                             COMMIT_MESSAGE = "Deploy for tag ${env.TAG_NAME}"
                             sh '''
                                 cd k8s
-                                sed -i "s/^imageTag: .*/imageTag: \\&tag ${TAG_NAME}/" environments/values-staging.yaml
+                                sed -i "s/^imageTag: .*/imageTag: \\&tag ${env.TAG_NAME}/" environments/values-staging.yaml
                             ''' 
                             echo "Update tag for all services to ${env.TAG_NAME} in environments/values-staging.yaml"
                     } else {
