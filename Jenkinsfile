@@ -122,7 +122,7 @@ pipeline {
                 script { 
                     def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()   
                     sh """
-                        git clone https://github.com/HCMUS-DevOps-Projects/project02-k8s helm
+                        git clone https://github.com/HCMUS-DevOps-Projects/project02-k8s.git helm
                         cd helm
                         git config user.name "jenkins"
                         git config user.email "jenkins@example.com"
@@ -152,7 +152,7 @@ pipeline {
                         echo "Deploying to Kubernetes with tag: ${env.TAG_NAME}"
                         COMMIT_MESSAGE = "Deploy for tag ${env.TAG_NAME}"
                         sh """
-                            cd helm/k8s
+                            cd helm
                             sed -i "s/^imageTag: .*/imageTag: \\&tag ${env.TAG_NAME}/" environments/values-staging.yaml
                         """ 
                         echo "Update tag for all services to ${env.TAG_NAME} in environments/values-staging.yaml"
@@ -164,7 +164,7 @@ pipeline {
                             env.CHANGED_SERVICES.split(',').each { fullName ->
                                 def shortName = fullName.replaceFirst('spring-petclinic-', '')
                                 sh """
-                                    cd helm/project02-k8s
+                                    cd helm
                                     sed -i '/${shortName}:/{n;n;s/tag:.*/tag: ${commit}/}' environments/values-dev.yaml
                                 """
                                 echo "Updated tag for ${shortName} to ${commit} in environments/values-dev.yaml"
@@ -173,7 +173,7 @@ pipeline {
                     }
                     
                     sh """
-                        cd helm/project02-k8s
+                        cd helm
                         git add .
                         git commit -m "${COMMIT_MESSAGE}"
                         git push origin main
