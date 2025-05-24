@@ -37,8 +37,15 @@ pipeline {
             when { expression { return !env.TAG_NAME } }
             steps {
                 script {
+                    def compareTarget = ""
+                    if (env.BRANCH_NAME == 'main') {
+                       compareTarget = "HEAD~1"
+                    } else {
+                        sh "git fetch origin main"
+                        compareTarget = "origin/main"
+                    }
                     sh "git fetch origin main:refs/remotes/origin/main"
-                    def changes = sh(script: "git diff --name-only origin/main HEAD", returnStdout: true).trim().split("\n")
+                    def changes = sh(script: "git diff --name-only  ${compareTarget} HEAD", returnStdout: true).trim().split("\n")
                     echo "Changed files: ${changes}"
 
                     def allServices = SERVICES.split("\n").collect { it.trim() }.findAll { it }
