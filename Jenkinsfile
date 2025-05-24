@@ -130,13 +130,14 @@ pipeline {
             steps {
                 script { 
                     def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()   
-                    sh """
-                        rm -rf helm
-                        git clone https://github.com/HCMUS-DevOps-Projects/project02-k8s.git helm
-                        cd helm
-                        git config user.name "jenkins"
-                        git config user.email "jenkins@example.com"
-                    """
+                    withCredentials([usernamePassword(credentialsId: 'github-repo-helm', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        sh '''
+                            git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/HCMUS-DevOps-Projects/project02-k8s helm
+                            cd helm
+                            git config user.name "jenkins"
+                            git config user.email "jenkins@example.com"
+                        '''
+                    }
                     
                     // Update Chart version
                     sh """
