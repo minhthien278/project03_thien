@@ -102,7 +102,7 @@ pipeline {
                                 -t ${env.DOCKER_USER}/${service}:${imageTag} \\
                                 -f ../docker/Dockerfile \\
                                 --build-arg ARTIFACT_NAME=target/${service}-${ARTIFACT_VERSION} \\
-                                --build-arg EXPOSED_PORT=8080 . && \\
+                                --build-arg EXPOSED_PORT=8080 . 
                         """
                         sh "docker push ${env.DOCKER_USER}/${service}:${imageTag}"
                         if (env.BRANCH_NAME == 'main'){
@@ -147,7 +147,7 @@ pipeline {
                             COMMIT_MESSAGE = "Deploy for tag ${env.TAG_NAME}"
                             sh '''
                                 cd k8s
-                                sed -i "s/^imageTag: .*/imageTag: \\&tag ${env.TAG_NAME}/" environments/values-staging.yaml
+                                sed -i "s/^imageTag: .*/imageTag: \\&tag ${TAG_NAME}/" environments/values-staging.yaml
                             ''' 
                             echo "Update tag for all services to ${env.TAG_NAME} in environments/values-staging.yaml"
                     } else {
