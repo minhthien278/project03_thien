@@ -196,8 +196,6 @@ pipeline {
                 cleanWs()
             }
         }
-}
-
     }
     
     post {
