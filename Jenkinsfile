@@ -131,6 +131,7 @@ pipeline {
                 script { 
                     def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()   
                     sh """
+                        rm -rf helm
                         git clone https://github.com/HCMUS-DevOps-Projects/project02-k8s.git helm
                         cd helm
                         git config user.name "jenkins"
@@ -188,12 +189,6 @@ pipeline {
                         git push origin main
                     """
                 }
-            }
-        }
-        
-        stage('Clean Workspace') {
-            steps {
-                cleanWs()
             }
         }
     }
