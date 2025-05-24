@@ -114,6 +114,15 @@ pipeline {
             }
         }
         
+         stage('Docker Cleanup And Logout') {
+            steps {
+                script {
+                    echo "Cleaning up Docker and logging out..."
+                    sh "docker system prune -af || true"
+                    sh "docker logout || true"
+                }
+            }
+        }
         stage ('Push Commit To Helm Repo') {
             when {
                 expression { return env.TAG_NAME || env.BRANCH_NAME == 'main' }
@@ -182,15 +191,13 @@ pipeline {
             }
         }
         
-        stage('Docker Cleanup And Logout') {
+        stage('Clean Workspace') {
             steps {
-                script {
-                    echo "Cleaning up Docker and logging out..."
-                    sh "docker system prune -af || true"
-                    sh "docker logout || true"
-                }
+                cleanWs()
             }
         }
+}
+
     }
     
     post {
