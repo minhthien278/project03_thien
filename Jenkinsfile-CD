@@ -86,14 +86,21 @@ services:
                 }
             }
         }
-    }
-
-    post {
-        always {
-            echo "🧹 Cleanup..."
-            sh "docker logout || true"
+        stage ('Add Ip Ingress In Your File Host') 
+        {
+            steps {
+                script {
+                    def namespace = params.namespace.trim()
+                    def ip = sh(
+                        script: "kubectl get ingress -n ${namespace} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'",
+                        returnStdout: true
+                    ).trim()
+                    echo "Add this line to your /etc/hosts file: ${ip} petclinic-${namespace}.com"
+                }
+            }
         }
     }
+
 }
 
 def getTag(serviceName, branch) {
