@@ -105,7 +105,7 @@ pipeline {
                                 --build-arg EXPOSED_PORT=8080 . 
                         """
                         sh "docker push ${env.DOCKER_USER}/${service}:${imageTag}"
-                        if (env.BRANCH_NAME == 'main'){
+                        if (env.BRANCH_NAME == 'main' && !env.TAG_NAME) {
                             sh "docker tag ${env.DOCKER_USER}/${service}:${imageTag} ${env.DOCKER_USER}/${service}:latest"
                             sh "docker push ${env.DOCKER_USER}/${service}:latest"
                         }
