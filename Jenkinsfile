@@ -163,9 +163,9 @@ pipeline {
                         COMMIT_MESSAGE = "Deploy for tag ${env.TAG_NAME}"
                         sh """
                             cd helm
-                            sed -i "s/^imageTag: .*/imageTag: \\&tag ${env.TAG_NAME}/" environments/values-staging.yaml
+                            sed -i "s/^imageTag: .*/imageTag: \\&tag ${env.TAG_NAME}/" environments/values.yaml
                         """ 
-                        echo "Update tag for all services to ${env.TAG_NAME} in environments/values-staging.yaml"
+                        echo "Update tag for all services to ${env.TAG_NAME} in environments for staging"
                     } else {
                         echo "Deploying to Kubernetes with branch: main"
                         COMMIT_MESSAGE = "Deploy to helm repo with commit ${commit}"
@@ -175,9 +175,9 @@ pipeline {
                                 def shortName = fullName.replaceFirst('spring-petclinic-', '')
                                 sh """
                                     cd helm
-                                    sed -i '/${shortName}:/{n;n;s/tag:.*/tag: ${commit}/}' environments/values-dev.yaml
+                                    sed -i '/${shortName}:/{n;n;s/tag:.*/tag: ${commit}/}' environments/values.yaml
                                 """
-                                echo "Updated tag for ${shortName} to ${commit} in environments/values-dev.yaml"
+                                echo "Updated tag for ${shortName} to ${commit} in environments for dev"
                             }
                         }
                     }
