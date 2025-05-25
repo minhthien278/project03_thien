@@ -86,15 +86,23 @@ services:
                 }
             }
         }
-        stage ('Add Ip Ingress In Your File Host') 
-        {
+        stage('Add Ip Ingress In Your File Host') {
             steps {
                 script {
                     def namespace = params.namespace.trim()
-                    def ip = sh(
-                        script: "kubectl get ingress -n ${namespace} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'",
-                        returnStdout: true
-                    ).trim()
+                    def ip = ''
+
+                    // Chờ cho đến khi IP được cấp phát
+                    timeout(time: 2, unit: 'MINUTES') { // tránh chờ vô hạn
+                        waitUntil {
+                            ip = sh(
+                                script: "kubectl get ingress -n ${namespace} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'",
+                                returnStdout: true
+                            ).trim()
+                            return ip != ''
+                        }
+                    }
+
                     echo "Add this line to your /etc/hosts file: ${ip} petclinic-${namespace}.com"
                 }
             }
