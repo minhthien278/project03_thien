@@ -62,4 +62,4 @@ class VisitsServiceClientIntegrationTest {
     }
 
 }
-//test api
+//test api-gateway
