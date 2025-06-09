@@ -93,7 +93,7 @@ services:
                     def ip = ''
 
                     // Chờ cho đến khi IP được cấp phát
-                    timeout(time: 2, unit: 'MINUTES') { // tránh chờ vô hạn
+                    timeout(time: 10, unit: 'MINUTES') { // tránh chờ vô hạn
                         waitUntil {
                             ip = sh(
                                 script: "kubectl get ingress -n ${namespace} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'",
