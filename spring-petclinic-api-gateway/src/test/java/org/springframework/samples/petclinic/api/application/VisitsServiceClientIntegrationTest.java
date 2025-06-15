@@ -62,4 +62,4 @@ class VisitsServiceClientIntegrationTest {
     }
 
 }
-//test api-gateway ngay 9-6 lan thu n +1
+//test api-gateway ngay 9-6 lan thu n +2
