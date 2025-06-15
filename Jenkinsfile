@@ -140,7 +140,7 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'github-repo-helm', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                             sh '''
                                 rm -rf helm
-                                git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/HCMUS-DevOps-Projects/project02-k8s helm
+                                git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/minhthien278/project03_k8s_thien helm
                                 cd helm
                                 git config user.name "jenkins"
                                 git config user.email "jenkins@example.com"
